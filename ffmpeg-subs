@@ -1,0 +1,116 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+namespace CLI 
+{    
+    function opt(string $name): mixed
+    {
+        static $options;
+
+        if (! isset($options)) {
+            $options = \getopt('i:v');
+        }
+
+        return $options[$name] ?? null;
+    }
+
+    function isCli(): bool
+    {
+        return 'cli' === \PHP_SAPI;
+    }
+
+    function verbose(): bool
+    {
+        return null !== opt('v');
+    }
+}
+
+namespace Converter
+{
+    const AVAILABLE_VIDEO_EXT = ['mkv'];
+    const AVAILABLE_SUB_EXT = ['ass'];
+
+    function addSub(string $source, string $dest): array
+    {
+        $sub = null;
+        $name = \substr($source, 0, \strrpos($source, '.'));
+
+        foreach (AVAILABLE_SUB_EXT as $ext) {
+            if (\is_file(\sprintf('%s.%s', $name, $ext))) {
+                $sub = \sprintf('%s.%s', $name, $ext);
+
+                break;
+            }
+        }
+
+        if (null === $sub) {
+            throw new \InvalidArgumentException(\sprintf('Video file "%s" does not contain subtitle file.', $source));
+        }
+
+        $output = null;
+        $retval = null;
+
+        \exec(\sprintf('ffmpeg -i "%s" -i "%s" -c copy "%s" -loglevel 24', $source, $sub, $dest), $output, $retval);
+
+        return [$retval, $output];
+    }
+
+    function isSupportedFormat(string $video): bool
+    {
+        return 1 === \preg_match(\sprintf('#\.(?:%s)$#', \implode('|', AVAILABLE_VIDEO_EXT)), $video);
+    }
+}
+
+namespace Main
+{
+    use CLI;
+    use Converter;
+
+    use const \DIRECTORY_SEPARATOR as DS;
+
+    \set_time_limit(0);
+
+    if (! Cli\isCli()) {
+        throw new \RuntimeException('Only CLI calls.');
+    }
+
+    $sourceDir = \rtrim(Cli\opt('i'), DS);
+    $destDir = \sprintf('%s%soutput%s', $sourceDir, DS, DS);
+
+    if (! \is_readable($sourceDir)) {
+        throw new \RuntimeException(\sprintf('Can not read "%s".', $sourceDir));
+    }
+
+    if (! \is_dir($destDir) && ! \mkdir($destDir, recursive: true)) {
+        throw new \RuntimeException(\sprintf('Can not create output directory "%s".', $destDir));
+    }
+
+    if (! \is_writable($destDir)) {
+        throw new \RuntimeException(\sprintf('Can not write to "%s".', $destDir));
+    }
+
+    foreach (\glob(\sprintf('%s%s*', $sourceDir, DS)) as $filename) {
+        if (Converter\isSupportedFormat($filename)) {
+            if (CLI\verbose()) {
+                echo \sprintf("\033[33mFormatting \"%s\"\033[0m", $filename), \PHP_EOL;
+            }
+
+            try {
+                [$retval, $output] = Converter\addSub($filename, \sprintf('%s%s%s', $destDir, DS, \basename($filename)));
+
+                if ($retval > 0) {
+                    echo \implode(\PHP_EOL, $output);
+                }
+
+                if (CLI\verbose() && 0 === $retval) {
+                    echo "\033[32mFormatting processed\033[0m", \PHP_EOL;
+                }
+            } catch (\InvalidArgumentException $e) {
+                echo \sprintf("\033[31mFormatting error: %s\033[0m", $e->getMessage()), \PHP_EOL;
+            }
+        }
+    }
+}
+
