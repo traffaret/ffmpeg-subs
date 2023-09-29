@@ -29,17 +29,30 @@ namespace CLI
 
 namespace Converter
 {
-    const AVAILABLE_VIDEO_EXT = ['mkv'];
-    const AVAILABLE_SUB_EXT = ['ass'];
+    const VIDEO_EXT_MKV = 'mkv';
+    const AVAILABLE_VIDEO_EXT = ['mkv', 'avi'];
+    const AVAILABLE_SUB_EXT = ['ass', 'srt'];
+    const AVAILABLE_AUDIO_EXT = ['mp3'];
 
     function addSub(string $source, string $dest): array
     {
+        $audio = null;
         $sub = null;
-        $name = \substr($source, 0, \strrpos($source, '.'));
+        $extPost = \strrpos($source, '.');
+        $sourceName = \substr($source, 0, $extPost);
+        $sourceExt = \substr($source, $extPost);
 
         foreach (AVAILABLE_SUB_EXT as $ext) {
-            if (\is_file(\sprintf('%s.%s', $name, $ext))) {
-                $sub = \sprintf('%s.%s', $name, $ext);
+            if (\is_file(\sprintf('%s.%s', $sourceName, $ext))) {
+                $sub = \sprintf('%s.%s', $sourceName, $ext);
+
+                break;
+            }
+        }
+
+        foreach (AVAILABLE_AUDIO_EXT as $ext) {
+            if (\is_file(\sprintf('%s.%s', $sourceName, $ext))) {
+                $audio = \sprintf('%s.%s', $sourceName, $ext);
 
                 break;
             }
@@ -51,6 +64,33 @@ namespace Converter
 
         $output = null;
         $retval = null;
+
+        if (VIDEO_EXT_MKV !== $sourceExt) {
+            $convertedSource = \preg_replace('#(.*)\.(\w+)$#', \sprintf('$1.%s', VIDEO_EXT_MKV), $source);
+            $retval = null;
+
+            \exec(\sprintf('ffmpeg -fflags +genpts -i "%s" -c copy "%s"', $source, $convertedSource), result_code: $retval);
+
+            if ($retval > 0) {
+                throw new \RuntimeException(\sprintf('Can not convert "%s" to "%s"', $source, $convertedSource));
+            }
+
+            $source = $convertedSource;
+            $dest = \preg_replace('#(.*)\.(\w+)$#', \sprintf('$1.%s', VIDEO_EXT_MKV), $dest);
+        }
+
+        if (null !== $audio) {
+            $convertedSource = \preg_replace('#(.*)\.(\w+)$#', '$1_[audio]_.$2', $source);
+            $retval = null;
+
+            \exec(\sprintf('ffmpeg -i "%s" -i "%s" -c copy -map 0:0 -map 1:0 "%s"', $source, $audio, $convertedSource), result_code: $retval);
+
+            if ($retval > 0) {
+                throw new \RuntimeException(\sprintf('Can not add audio file "%s" to "%s"', $audio, $source));
+            }
+
+            \rename($convertedSource, $source);
+        }
 
         \exec(\sprintf('ffmpeg -i "%s" -i "%s" -c copy "%s" -loglevel 24', $source, $sub, $dest), $output, $retval);
 
@@ -107,7 +147,7 @@ namespace Main
                 if (CLI\verbose() && 0 === $retval) {
                     echo "\033[32mFormatting processed\033[0m", \PHP_EOL;
                 }
-            } catch (\InvalidArgumentException $e) {
+            } catch (\InvalidArgumentException|\RuntimeException $e) {
                 echo \sprintf("\033[31mFormatting error: %s\033[0m", $e->getMessage()), \PHP_EOL;
             }
         }
