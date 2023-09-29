@@ -1,8 +1,10 @@
 # FFMPEG converter with subs
 
-Converts video files provided in source directory to video files with subtitles.
+Converts video files provided in source directory to video files with subtitles (it can be with new audio tracks).
 
-Subtitile file must be located in the same directory with the same name as vide file.
+Subtitile file must be located in the same directory with the same name as video file.
+
+Audio file must be located in the same directory with the same name as video file.
 
 ### Arguments
 
@@ -12,9 +14,11 @@ Subtitile file must be located in the same directory with the same name as vide 
 
 ### Supported formats
 
-Video: `.mkv`
+Video: `.mkv`, `avi` (converts to `.mkv`)
 
-Subtitle: `.ass`
+Audio: `.mp3`
+
+Subtitle: `.ass`, `.srt`
 
 ### Requirements
 
