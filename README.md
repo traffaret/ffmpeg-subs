@@ -16,9 +16,18 @@ Video: `.mkv`
 
 Subtitle: `.ass`
 
+### Requirements
+
+PHP 8+, ffmpeg
+
 ## Example
 ```bash
 ./ffmpeg-sub -i /app/VideoFiles -v
+```
+
+With docker
+```bash
+make convert source=/app/VideoFiles
 ```
 
 Result files will be in `/app/VideoFiles/output`.
