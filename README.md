@@ -31,6 +31,13 @@ PHP 8+, ffmpeg
 
 With docker
 ```bash
+docker run --rm -it --name ffmpeg-subs -v$(pwd):/app -v$(source):/app/source ffmpeg-subs /app/ffmpeg-subs -i /app/source -v
+```
+
+or
+
+using make
+```bash
 make convert source=/app/VideoFiles
 ```
 
