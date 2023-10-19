@@ -40,7 +40,7 @@ namespace Converter
         $sub = null;
         $extPost = \strrpos($source, '.');
         $sourceName = \substr($source, 0, $extPost);
-        $sourceExt = \substr($source, $extPost);
+        $sourceExt = \substr($source, $extPost + 1);
 
         foreach (AVAILABLE_SUB_EXT as $ext) {
             if (\is_file(\sprintf('%s.%s', $sourceName, $ext))) {
